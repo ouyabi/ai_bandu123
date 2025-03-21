@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI伴读 - 你的智能阅读助手">
+    <title>AI伴读 - 智能阅读助手</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- 添加字体图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- 移动端菜单按钮 -->
+    <button id="menu-toggle" class="menu-toggle" aria-label="切换菜单">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <i class="fas fa-book-reader"></i>
+                <span>AI伴读</span>
+            </div>
+            
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="#home" class="active"><i class="fas fa-home"></i> 首页</a></li>
+                    <li><a href="#notes"><i class="fas fa-pen-to-square"></i> 读书笔记</a></li>
+                    <li><a href="#ai-assistant"><i class="fas fa-robot"></i> AI助手</a></li>
+                    <li><a href="#about"><i class="fas fa-info-circle"></i> 关于我们</a></li>
+                </ul>
+            </nav>
+
+            <div class="user-menu">
+                <button class="login-btn"><i class="fas fa-user"></i> 登录</button>
+                <button class="signup-btn"><i class="fas fa-user-plus"></i> 注册</button>
+            </div>
+        </div>
+    </header>
+
+    <aside class="sidebar">
+        <div class="user-profile">
+            <div class="user-info">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="用户头像" class="avatar">
+                <h3 class="username">游客</h3>
+                <p class="user-status">在线</p>
+            </div>
+            <div class="reading-progress">
+                <h4>今日阅读进度</h4>
+                <div class="progress-bar">
+                    <div class="progress" style="width: 60%"></div>
+                </div>
+                <p>已阅读 60 分钟</p>
+            </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <h3>快捷导航</h3>
+            <ul>
+                <li><a href="#library"><i class="fas fa-books"></i> 我的书库</a></li>
+                <li><a href="#favorites"><i class="fas fa-star"></i> 收藏夹</a></li>
+                <li><a href="#history"><i class="fas fa-history"></i> 阅读历史</a></li>
+                <li><a href="#settings"><i class="fas fa-cog"></i> 设置</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main>
+        <section id="home" class="section active fade-in">
+            <div class="welcome-banner">
+                <h1>欢迎来到AI伴读</h1>
+                <p>让AI成为你的专属阅读助手，提升阅读效率与理解深度</p>
+                <button class="cta-button">开始阅读之旅 <i class="fas fa-arrow-right"></i></button>
+            </div>
+
+            <div class="feature-cards">
+                <article class="card">
+                    <i class="fas fa-book-open"></i>
+                    <h2>智能笔记</h2>
+                    <p>AI辅助记录读书笔记，自动整理重点内容</p>
+                </article>
+                <article class="card">
+                    <i class="fas fa-brain"></i>
+                    <h2>深度理解</h2>
+                    <p>AI分析文本，提供多维度解读与见解</p>
+                </article>
+                <article class="card">
+                    <i class="fas fa-chart-line"></i>
+                    <h2>进度追踪</h2>
+                    <p>可视化你的阅读进度，培养良好习惯</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="notes" class="section">
+            <header class="section-header">
+                <h1>读书笔记</h1>
+                <div class="actions">
+                    <button class="new-note-btn"><i class="fas fa-plus"></i> 新建笔记</button>
+                </div>
+            </header>
+
+            <div class="search-filter">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="搜索笔记...">
+                </div>
+                <div class="filters">
+                    <select class="filter-select">
+                        <option value="">选择书籍</option>
+                        <option value="book1">深度学习</option>
+                        <option value="book2">人工智能</option>
+                    </select>
+                    <select class="filter-select">
+                        <option value="">时间排序</option>
+                        <option value="newest">最新优先</option>
+                        <option value="oldest">最早优先</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="notes-grid">
+                <!-- 笔记卡片示例 -->
+                <article class="note-card">
+                    <div class="note-header">
+                        <h3>机器学习概述</h3>
+                        <span class="date">2024-03-20</span>
+                    </div>
+                    <p class="note-preview">机器学习是人工智能的一个分支，主要研究计算机怎样模拟人类学习行为...</p>
+                    <div class="note-footer">
+                        <div class="tags">
+                            <span class="tag">AI</span>
+                            <span class="tag">机器学习</span>
+                        </div>
+                        <button class="more-btn"><i class="fas fa-ellipsis-h"></i></button>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section id="ai-assistant" class="section">
+            <header class="section-header">
+                <h1>AI助手</h1>
+            </header>
+
+            <div class="chat-container">
+                <div class="chat-messages">
+                    <div class="message ai">
+                        <div class="message-content">
+                            <p>你好！我是你的AI阅读助手。我可以帮你：</p>
+                            <ul>
+                                <li>分析文章重点</li>
+                                <li>回答阅读问题</li>
+                                <li>生成阅读笔记</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input">
+                    <textarea placeholder="输入你的问题或上传文本..."></textarea>
+                    <div class="input-actions">
+                        <button class="upload-btn"><i class="fas fa-paperclip"></i></button>
+                        <button class="send-btn"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="about" class="section">
+            <header class="section-header">
+                <h1>关于我们</h1>
+            </header>
+
+            <div class="about-content">
+                <div class="mission">
+                    <h2>我们的使命</h2>
+                    <p>AI伴读致力于将人工智能技术应用于阅读领域，帮助读者提升阅读效率和理解深度。</p>
+                </div>
+
+                <div class="features">
+                    <h2>核心特色</h2>
+                    <div class="feature-grid">
+                        <div class="feature-item">
+                            <i class="fas fa-lightbulb"></i>
+                            <h3>智能解析</h3>
+                            <p>运用NLP技术，深度理解文本内容</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-users"></i>
+                            <h3>个性化推荐</h3>
+                            <p>基于阅读习惯，推荐合适内容</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-shield-alt"></i>
+                            <h3>数据安全</h3>
+                            <p>严格保护用户隐私和阅读数据</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="contact">
+                    <h2>联系我们</h2>
+                    <p>如果您有任何问题或建议，欢迎联系我们：</p>
+                    <a href="mailto:contact@aiban.com" class="contact-btn">
+                        <i class="fas fa-envelope"></i> 发送邮件
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>AI伴读</h3>
+                <p>让阅读更智能，让思考更深入</p>
+            </div>
+            <div class="footer-section">
+                <h3>快速链接</h3>
+                <ul>
+                    <li><a href="#home">首页</a></li>
+                    <li><a href="#notes">读书笔记</a></li>
+                    <li><a href="#ai-assistant">AI助手</a></li>
+                    <li><a href="#about">关于我们</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>联系方式</h3>
+                <p>邮箱：contact@aiban.com</p>
+                <div class="social-links">
+                    <a href="#"><i class="fab fa-weixin"></i></a>
+                    <a href="#"><i class="fab fa-weibo"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 AI伴读 版权所有</p>
+        </div>
+    </footer>
+
+    <!-- 加载脚本 -->
+    <script src="app.js" defer></script>
+</body>
+</html>
