@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-const ELEVENLABS_API_KEY = 'sk_5c54bfff47eec03852d6c622ffb80202dd3e913f5aff5102';
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // 默认是 Rachel 女声，支持中文
 
 async function textToSpeech(text, filename) {

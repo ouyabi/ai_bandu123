@@ -46,7 +46,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'AI伴读', 'index.html'));
 });
 
-const DEEPSEEK_API_KEY = 'sk-65a646d3cad34d61ba02807e428b8999';
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
 // 处理文件上传
