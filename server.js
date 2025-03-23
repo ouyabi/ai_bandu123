@@ -38,8 +38,18 @@ app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
 // 设置静态文件目录
 app.use(express.static(path.join(__dirname, 'AI伴读')));
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/audio', express.static(path.join(__dirname, 'public/audio')));
+
+// 确保必要的目录存在
+const uploadDir = path.join(__dirname, 'uploads');
+const audioDir = path.join(__dirname, 'public', 'audio');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+if (!fs.existsSync(audioDir)) {
+    fs.mkdirSync(audioDir, { recursive: true });
+}
 
 // 默认路由
 app.get('/', (req, res) => {
