@@ -40,24 +40,17 @@
 
     <aside class="sidebar">
         <div class="user-profile">
+            <img src="image.png" alt="用户头像" class="avatar">
             <div class="user-info">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="用户头像" class="avatar">
-                <h3 class="username">游客</h3>
-                <p class="user-status">在线</p>
-            </div>
-            <div class="reading-progress">
-                <h4>今日阅读进度</h4>
-                <div class="progress-bar">
-                    <div class="progress" style="width: 60%"></div>
-                </div>
-                <p>已阅读 60 分钟</p>
+                <h3>Astral</h3>
+                <p>您的智能学习伙伴</p>
             </div>
         </div>
         
         <nav class="sidebar-nav">
             <h3>快捷导航</h3>
             <ul>
-                <li><a href="#library"><i class="fas fa-books"></i> 我的书库</a></li>
+                <li><a href="#library"><i class="fas fa-book"></i> 我的书库</a></li>
                 <li><a href="#favorites"><i class="fas fa-star"></i> 收藏夹</a></li>
                 <li><a href="#history"><i class="fas fa-history"></i> 阅读历史</a></li>
                 <li><a href="#settings"><i class="fas fa-cog"></i> 设置</a></li>
@@ -70,7 +63,7 @@
             <div class="welcome-banner">
                 <h1>欢迎来到AI伴读</h1>
                 <p>让AI成为你的专属阅读助手，提升阅读效率与理解深度</p>
-                <button class="cta-button">开始阅读之旅 <i class="fas fa-arrow-right"></i></button>
+                <button class="cta-button">开启阅读之旅</button>
             </div>
 
             <div class="feature-cards">
@@ -90,11 +83,43 @@
                     <p>可视化你的阅读进度，培养良好习惯</p>
                 </article>
             </div>
+
+            <div class="reading-stats">
+                <div class="stats-card">
+                    <h3>今日阅读</h3>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress" id="daily-progress"></div>
+                        </div>
+                        <p class="progress-text">目标: 60分钟</p>
+                        <p class="time-spent">已阅读: <span id="time-spent">0</span> 分钟</p>
+                    </div>
+                </div>
+                
+                <div class="stats-card">
+                    <h3>本周阅读</h3>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress" id="weekly-progress"></div>
+                        </div>
+                        <p class="progress-text">目标: 7小时</p>
+                        <p class="time-spent">已阅读: <span id="weekly-time">0</span> 小时</p>
+                    </div>
+                </div>
+                
+                <div class="stats-card">
+                    <h3>连续打卡</h3>
+                    <div class="streak-container">
+                        <span class="streak-count" id="streak-count">0</span>
+                        <span class="streak-text">天</span>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <section id="notes" class="section">
             <header class="section-header">
-                <h1>读书笔记</h1>
+                
                 <div class="actions">
                     <button class="new-note-btn"><i class="fas fa-plus"></i> 新建笔记</button>
                 </div>
@@ -139,29 +164,32 @@
         </section>
 
         <section id="ai-assistant" class="section">
-            <header class="section-header">
-                <h1>AI助手</h1>
-            </header>
-
             <div class="chat-container">
                 <div class="chat-messages">
                     <div class="message ai">
                         <div class="message-content">
-                            <p>你好！我是你的AI阅读助手。我可以帮你：</p>
-                            <ul>
-                                <li>分析文章重点</li>
-                                <li>回答阅读问题</li>
-                                <li>生成阅读笔记</li>
-                            </ul>
+                            你好！我是你的AI阅读助手，有什么我可以帮你的吗？
                         </div>
                     </div>
                 </div>
-
                 <div class="chat-input">
-                    <textarea placeholder="输入你的问题或上传文本..."></textarea>
+                    <div class="upload-preview"></div>
+                    <textarea placeholder="输入你的问题..."></textarea>
                     <div class="input-actions">
-                        <button class="upload-btn"><i class="fas fa-paperclip"></i></button>
-                        <button class="send-btn"><i class="fas fa-paper-plane"></i></button>
+                        <div class="upload-buttons">
+                            <label class="upload-btn" title="上传图片">
+                                <i class="fas fa-image"></i>
+                                <input type="file" accept="image/*" class="file-input" id="image-upload">
+                            </label>
+                            <label class="upload-btn" title="上传文件">
+                                <i class="fas fa-file"></i>
+                                <input type="file" accept=".pdf,.doc,.docx,.txt" class="file-input" id="file-upload">
+                            </label>
+                        </div>
+                        <button class="send-btn">
+                            <i class="fas fa-paper-plane"></i>
+                            发送
+                        </button>
                     </div>
                 </div>
             </div>
@@ -205,6 +233,159 @@
                     <a href="mailto:contact@aiban.com" class="contact-btn">
                         <i class="fas fa-envelope"></i> 发送邮件
                     </a>
+                </div>
+            </div>
+        </section>
+
+        <section id="settings" class="section">
+            <header class="section-header">
+                
+            </header>
+            <div class="settings-content">
+                <h2>账户设置</h2>
+                <ul>
+                    <li>个人信息（用户名、头像、昵称等）</li>
+                    <li>账户安全（密码修改、绑定邮箱、手机号验证等）</li>
+                    <li>登录管理（多设备登录管理、登录历史记录）</li>
+                </ul>
+
+                <h2>阅读偏好设置</h2>
+                <ul>
+                    <li>阅读模式
+                        <button id="toggleReadingMode" class="toggle-btn">切换模式</button>
+                    </li>
+                    <li>阅读进度提醒（设置提醒方式、频率）</li>
+                    <li>AI伴读声音设置（如果支持语音伴读，可以设置声音类型、语速、音量）</li>
+                </ul>
+
+                <h2>AI辅助功能设置</h2>
+                <ul>
+                    <li>智能笔记设置
+                        <ul>
+                            <li>自动生成笔记开关</li>
+                            <li>重点内容标记风格（颜色、样式）</li>
+                        </ul>
+                    </li>
+                    <li>深度理解设置
+                        <ul>
+                            <li>AI分析深度等级（初级、中级、高级）</li>
+                            <li>自定义AI解释风格（简单通俗、详细学术）</li>
+                        </ul>
+                    </li>
+                    <li>进度追踪设置
+                        <ul>
+                            <li>阅读进度展示模式（百分比、章节进度、页面进度）</li>
+                            <li>阅读习惯提醒（例如定时提醒每日阅读）</li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <h2>通知与隐私设置</h2>
+                <ul>
+                    <li>通知管理（允许通知类型、通知频率）</li>
+                    <li>隐私保护
+                        <ul>
+                            <li>阅读历史隐私设置（公开/私密）</li>
+                            <li>数据收集授权管理（允许AI学习你的阅读偏好和行为的程度）</li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <h2>高级设置</h2>
+                <ul>
+                    <li>缓存与数据管理
+                        <ul>
+                            <li>清除缓存数据</li>
+                            <li>本地存储空间管理</li>
+                        </ul>
+                    </li>
+                    <li>外观与主题
+                        <ul>
+                            <li>自定义主题色彩</li>
+                            <li>深色模式切换</li>
+                        </ul>
+                    </li>
+                    <li>快捷键设置（适用于Web或桌面端）</li>
+                </ul>
+
+                <h2>帮助与反馈</h2>
+                <ul>
+                    <li>常见问题（FAQ）</li>
+                    <li>意见反馈与Bug报告</li>
+                    <li>使用教程与入门引导</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="library" class="section">
+            <div class="library-header">
+                <div class="library-title">
+                    <h1>我的书库</h1>
+                </div>
+                <div class="library-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="bookSearch" placeholder="搜索书籍...">
+                    </div>
+                    <select id="bookSort">
+                        <option value="name">按名称排序</option>
+                        <option value="time">按添加时间排序</option>
+                    </select>
+                    <label class="upload-book-btn">
+                        <i class="fas fa-plus"></i> 添加书籍
+                        <input type="file" id="bookUpload" accept=".pdf,.txt,.doc,.docx" multiple style="display: none;">
+                    </label>
+                </div>
+            </div>
+            <div class="library-content">
+                <div class="book-grid" id="bookGrid">
+                    <!-- 书籍将通过JavaScript动态添加 -->
+                </div>
+            </div>
+        </section>
+
+        <section id="favorites" class="section">
+            <div class="library-header">
+                <div class="library-title">
+                    <h1>收藏夹</h1>
+                </div>
+                <div class="library-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="favoriteSearch" placeholder="搜索收藏...">
+                    </div>
+                    <select id="favoriteSort">
+                        <option value="time">按收藏时间排序</option>
+                        <option value="name">按名称排序</option>
+                    </select>
+                </div>
+            </div>
+            <div class="library-content">
+                <div class="book-grid" id="favoritesGrid">
+                    <!-- 收藏的书籍将通过JavaScript动态添加 -->
+                </div>
+            </div>
+        </section>
+
+        <section id="history" class="section">
+            <div class="library-header">
+                <div class="library-title">
+                    <h1>阅读历史</h1>
+                </div>
+                <div class="library-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="historySearch" placeholder="搜索历史记录...">
+                    </div>
+                    <select id="historySort">
+                        <option value="time-desc">时间从新到旧</option>
+                        <option value="time-asc">时间从旧到新</option>
+                    </select>
+                </div>
+            </div>
+            <div class="library-content">
+                <div class="history-list" id="historyList">
+                    <!-- 历史记录将通过JavaScript动态添加 -->
                 </div>
             </div>
         </section>
