@@ -181,10 +181,14 @@ async function uploadFiles(files) {
             formData.append('file', file);
 
             console.log('开始上传文件:', file.name);
-            const response = await fetch('http://localhost:3000/api/upload', {
+            const response = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
             const data = await response.json();
             if (!data.success) {
@@ -193,7 +197,14 @@ async function uploadFiles(files) {
 
             // 读取上传的文件内容
             const fileResponse = await fetch(`/api/read/${data.file.filename}`);
+            if (!fileResponse.ok) {
+                throw new Error(`文件读取失败: HTTP ${fileResponse.status}`);
+            }
+
             const fileData = await fileResponse.json();
+            if (!fileData.content) {
+                throw new Error('文件内容为空');
+            }
 
             results.push({
                 filename: data.file.filename,
@@ -206,7 +217,7 @@ async function uploadFiles(files) {
     } catch (error) {
         console.error('文件上传错误:', error);
         addMessage(`文件上传失败: ${error.message}`, true);
-        return [];
+        throw error; // 向上传播错误
     }
 }
 
@@ -376,6 +387,24 @@ async function handleFileUpload(file) {
             xhr.send(formData);
         });
 
+        // 读取上传的文件内容
+        const fileResponse = await fetch(`/api/read/${response.file.filename}`);
+        if (!fileResponse.ok) {
+            throw new Error(`文件读取失败: HTTP ${fileResponse.status}`);
+        }
+
+        const fileData = await fileResponse.json();
+        if (!fileData.content) {
+            throw new Error('文件内容为空');
+        }
+
+        // 添加到处理后的文件列表
+        processedFiles.push({
+            filename: response.file.filename,
+            originalname: response.file.originalname,
+            content: fileData.content
+        });
+
         // 添加到上传文件列表
         uploadedFiles.push(file);
 
@@ -421,97 +450,67 @@ fileUpload?.addEventListener('change', (e) => {
     }
 });
 
-// 发送按钮点击事件
-function initializeChatEvents() {
-    console.log('初始化聊天事件...');
-    console.log('发送按钮:', sendButton);
-    console.log('输入框:', chatInput);
+// 发送消息处理函数
+async function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message && uploadedFiles.length === 0) return;
 
-    if (sendButton && chatInput) {
-        // 发送按钮点击事件
-        sendButton.addEventListener('click', async () => {
-            console.log('发送按钮被点击');
-            const message = chatInput.value.trim();
-            if (message || uploadedFiles.length > 0) {
-                addMessage(message, false);
-                chatInput.value = '';
-                // 清空上传预览区域
-                uploadPreview.innerHTML = '';
-                await sendMessageToAI(message);
-            }
-        });
-
-        // 输入框回车发送
-        chatInput.addEventListener('keypress', async (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                const message = chatInput.value.trim();
-                if (message || uploadedFiles.length > 0) {
-                    addMessage(message, false);
-                    chatInput.value = '';
-                    // 清空上传预览区域
-                    uploadPreview.innerHTML = '';
-                    await sendMessageToAI(message);
-                }
-            }
-        });
-    } else {
-        console.error('未找到发送按钮或输入框元素');
-    }
-}
-
-// 发送消息给AI
-async function sendMessageToAI(message) {
     try {
-        // 首先上传所有文件
-        let fileContents = [];
-        if (uploadedFiles.length > 0) {
-            console.log('准备上传文件:', uploadedFiles);
-            fileContents = await uploadFiles(uploadedFiles);
-            console.log('文件上传完成:', fileContents);
-        }
+        // 显示用户消息
+        addMessage(message);
+        
+        // 清空输入框和文件列表
+        chatInput.value = '';
+        
+        // 准备发送的数据
+        const requestData = {
+            message: message,
+            files: processedFiles
+        };
 
-        // 显示加载状态
-        const loadingDiv = document.createElement('div');
-        loadingDiv.className = 'message ai loading';
-        loadingDiv.innerHTML = '<div class="message-content">正在思考中...</div>';
-        chatMessages.appendChild(loadingDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-
-        const response = await fetch('http://localhost:3000/api/chat', {
+        // 发送到服务器
+        const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                message,
-                files: fileContents
-            })
+            body: JSON.stringify(requestData)
         });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
         const data = await response.json();
         if (data.error) {
             throw new Error(data.error);
         }
 
-        // 移除加载状态消息
-        if (loadingDiv && loadingDiv.parentNode) {
-            loadingDiv.remove();
-        }
-        
-        // 添加AI回复并播放语音
+        // 显示AI回复
         addMessage(data.reply, true);
-        playTTSFromServer(data.reply);
-        
-        // 清空已上传的文件列表和预览
-        uploadedFiles = [];
-        uploadPreview.innerHTML = '';
-        
+        handleAIResponse(data.reply);
+
     } catch (error) {
-        console.error('发送消息错误:', error);
+        console.error('发送失败:', error);
         addMessage(`发送失败: ${error.message}`, true);
+    } finally {
+        // 清理上传文件列表
+        uploadedFiles = [];
+        processedFiles = [];
+        uploadPreview.innerHTML = '';
     }
 }
+
+// 添加事件监听器
+sendButton.addEventListener('click', sendMessage);
+
+// 添加回车发送功能
+chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
 
 // 在 DOMContentLoaded 事件中初始化
 document.addEventListener('DOMContentLoaded', () => {

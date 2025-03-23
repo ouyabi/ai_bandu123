@@ -3,34 +3,30 @@ const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
 const multer = require('multer');
-const multerS3 = require('multer-s3');
-const { S3Client } = require('@aws-sdk/client-s3');
 const fs = require('fs');
 const pdf = require('pdf-parse');
 const { textToSpeech } = require('./tts');
 const app = express();
 
-// 配置S3客户端
-const s3 = new S3Client({
-    region: process.env.AWS_REGION || 'ap-northeast-1',
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+// 配置文件上传
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadDir = path.join(__dirname, 'uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        // 处理文件名编码
+        const originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+        const filename = Date.now() + '-' + originalname;
+        cb(null, filename);
     }
 });
 
-// 配置文件上传到S3
 const upload = multer({
-    storage: multerS3({
-        s3: s3,
-        bucket: process.env.AWS_BUCKET_NAME,
-        key: function (req, file, cb) {
-            const originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
-            const filename = Date.now() + '-' + originalname;
-            cb(null, `uploads/${filename}`);
-        },
-        contentType: multerS3.AUTO_CONTENT_TYPE
-    }),
+    storage: storage,
     limits: {
         fileSize: 500 * 1024 * 1024  // 500MB
     }
@@ -60,25 +56,46 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'AI伴读', 'index.html'));
 });
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+const DEEPSEEK_API_KEY = 'sk-65a646d3cad34d61ba02807e428b8999';
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
+
+// 检查必要的环境变量
+if (!DEEPSEEK_API_KEY) {
+    console.error('错误: 未设置 DEEPSEEK_API_KEY 环境变量');
+    process.exit(1);
+}
 
 // 处理文件上传
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
-            throw new Error('没有文件被上传');
+            console.error('上传错误: 没有文件被上传');
+            return res.status(400).json({
+                success: false,
+                error: '没有文件被上传'
+            });
+        }
+
+        // 确保uploads目录存在
+        const uploadDir = path.join(__dirname, 'uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
         }
 
         // 获取文件信息
         const fileInfo = {
-            filename: req.file.key.split('/').pop(),
+            filename: req.file.filename,
             originalname: req.file.originalname,
             size: req.file.size,
-            location: req.file.location
+            path: req.file.path
         };
 
         console.log('文件上传成功:', fileInfo);
+
+        // 验证文件是否真实存在
+        if (!fs.existsSync(req.file.path)) {
+            throw new Error('文件保存失败');
+        }
 
         res.json({
             success: true,
@@ -86,6 +103,14 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         });
     } catch (error) {
         console.error('上传错误:', error);
+        // 如果文件存在但发生其他错误，清理文件
+        if (req.file && fs.existsSync(req.file.path)) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (unlinkError) {
+                console.error('清理文件失败:', unlinkError);
+            }
+        }
         res.status(500).json({
             success: false,
             error: error.message || '文件上传失败'
@@ -102,15 +127,12 @@ app.post('/api/chat', async (req, res) => {
         // 如果有文件内容，添加到消息中
         if (files && files.length > 0) {
             fullMessage += '\n\n文件内容：\n';
-            for (const file of files) {
-                try {
-                    const response = await axios.get(file.location);
-                    fullMessage += `\n${file.filename}:\n${response.data}\n`;
-                } catch (error) {
-                    console.error('读取文件内容失败:', error);
-                }
-            }
+            files.forEach(file => {
+                fullMessage += `\n${file.filename}:\n${file.content}\n`;
+            });
         }
+
+        console.log('发送到 DeepSeek 的消息:', fullMessage);
 
         const response = await axios.post(DEEPSEEK_API_URL, {
             messages: [
@@ -129,26 +151,50 @@ app.post('/api/chat', async (req, res) => {
             }
         });
 
+        if (!response.data || !response.data.choices || !response.data.choices[0]) {
+            throw new Error('API 响应格式错误');
+        }
+
         res.json({
             reply: response.data.choices[0].message.content
         });
     } catch (error) {
-        console.error('Error:', error);
+        console.error('聊天请求错误:', error.response?.data || error.message);
         res.status(500).json({
-            error: '服务器错误，请稍后重试'
+            error: error.response?.data?.error || error.message || '服务器错误，请稍后重试'
         });
     }
 });
 
 // 文件读取接口
 app.get('/api/read/:filename', (req, res) => {
-    const filePath = path.join(__dirname, 'uploads', req.params.filename);
-    fs.readFile(filePath, 'utf8', (err, data) => {
-        if (err) {
-            return res.status(500).json({ error: '文件读取失败' });
+    try {
+        const filename = req.params.filename;
+        // 验证文件名，防止目录遍历攻击
+        if (filename.includes('..') || filename.includes('/')) {
+            throw new Error('无效的文件名');
         }
-        res.json({ content: data });
-    });
+
+        const filePath = path.join(__dirname, 'uploads', filename);
+        
+        // 检查文件是否存在
+        if (!fs.existsSync(filePath)) {
+            console.error('文件不存在:', filePath);
+            return res.status(404).json({ error: '文件不存在' });
+        }
+
+        // 异步读取文件
+        fs.readFile(filePath, 'utf8', (err, data) => {
+            if (err) {
+                console.error('文件读取失败:', err);
+                return res.status(500).json({ error: '文件读取失败' });
+            }
+            res.json({ content: data });
+        });
+    } catch (error) {
+        console.error('文件读取错误:', error);
+        res.status(400).json({ error: error.message });
+    }
 });
 
 // TTS接口
@@ -164,7 +210,7 @@ app.post('/api/tts', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`服务器运行在端口 ${PORT}`);
 }); 
