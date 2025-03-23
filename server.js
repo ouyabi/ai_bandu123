@@ -5,6 +5,7 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const pdf = require('pdf-parse');
+const { textToSpeech } = require('./tts');
 const app = express();
 
 // 配置文件上传
@@ -17,14 +18,17 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);
+        // 处理文件名编码
+        const originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+        const filename = Date.now() + '-' + originalname;
+        cb(null, filename);
     }
 });
 
 const upload = multer({
     storage: storage,
     limits: {
-        fileSize: 500 * 1024 * 1024  // 增加到500MB
+        fileSize: 500 * 1024 * 1024  // 500MB
     }
 });
 
@@ -35,6 +39,7 @@ app.use(express.urlencoded({ limit: '500mb', extended: true }));
 // 设置静态文件目录
 app.use(express.static(path.join(__dirname, 'AI伴读')));
 app.use('/uploads', express.static('uploads'));
+app.use('/audio', express.static(path.join(__dirname, 'public/audio')));
 
 // 默认路由
 app.get('/', (req, res) => {
@@ -48,7 +53,7 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
-            throw new Error('No file uploaded');
+            throw new Error('没有文件被上传');
         }
 
         // 获取文件信息
@@ -59,20 +64,17 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             path: req.file.path
         };
 
-        // 这里可以添加文件处理逻辑
-        // 1. 保存文件元数据到数据库
-        // 2. 开始异步处理文件
-        // 3. 返回文件ID给前端
+        console.log('文件上传成功:', fileInfo);
 
         res.json({
             success: true,
             file: fileInfo
         });
     } catch (error) {
-        console.error('Upload error:', error);
+        console.error('上传错误:', error);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message || '文件上传失败'
         });
     }
 });
@@ -116,6 +118,30 @@ app.post('/api/chat', async (req, res) => {
         res.status(500).json({
             error: '服务器错误，请稍后重试'
         });
+    }
+});
+
+// 文件读取接口
+app.get('/api/read/:filename', (req, res) => {
+    const filePath = path.join(__dirname, 'uploads', req.params.filename);
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            return res.status(500).json({ error: '文件读取失败' });
+        }
+        res.json({ content: data });
+    });
+});
+
+// TTS接口
+app.post('/api/tts', async (req, res) => {
+    try {
+        const { text } = req.body;
+        const filename = `voice_${Date.now()}.mp3`;
+        const audioPath = await textToSpeech(text, filename);
+        res.json({ url: audioPath });
+    } catch (error) {
+        console.error('TTS Error:', error);
+        res.status(500).json({ error: '语音合成失败' });
     }
 });
 

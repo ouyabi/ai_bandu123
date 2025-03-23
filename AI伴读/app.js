@@ -70,19 +70,26 @@ let uploadedFiles = [];
 let processedFiles = [];
 
 function formatAIResponse(text) {
-    // 移除多余的#号
+    // 移除多余的#号和星号
     text = text.replace(/^#+\s*$/gm, '');
+    text = text.replace(/\*\*(.*?)\*\*/g, '$1');
+    text = text.replace(/\*(.*?)\*/g, '$1');
     
     // 处理标题（从最长的匹配开始）
     text = text.replace(/###\s+(.*?)(?:\n|$)/g, '<h3>$1</h3>\n');
     text = text.replace(/##\s+(.*?)(?:\n|$)/g, '<h2>$1</h2>\n');
     text = text.replace(/#\s+(.*?)(?:\n|$)/g, '<h1>$1</h1>\n');
     
-    // 将连续的换行符替换为两个换行符
-    text = text.replace(/\n{3,}/g, '\n\n');
+    // 处理有序和无序列表
+    text = text.replace(/^\d+\.\s+(.*)$/gm, '<li>$1</li>');
+    text = text.replace(/^[-*]\s+(.*)$/gm, '<li>$1</li>');
+    
+    // 将连续的列表项包装在ol或ul中
+    text = text.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
     
     // 处理段落，忽略已经处理过的HTML标签
-    text = text.split('\n\n').map(paragraph => {
+    const paragraphs = text.split('\n\n');
+    text = paragraphs.map(paragraph => {
         paragraph = paragraph.trim();
         if (paragraph && !paragraph.match(/<[h|ul|li|ol][^>]*>/)) {
             return `<p>${paragraph}</p>`;
@@ -90,97 +97,44 @@ function formatAIResponse(text) {
         return paragraph;
     }).join('\n');
     
-    // 处理列表
-    text = text.replace(/^\d+\.\s+(.*)$/gm, '<li>$1</li>');
-    text = text.replace(/^-\s+(.*)$/gm, '<li>$1</li>');
-    
-    // 将连续的列表项包装在ol或ul中
-    text = text.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
-    
     // 清理多余的空行
     text = text.replace(/\n{3,}/g, '\n\n');
+    
+    // 清理段落内的多余换行
+    text = text.replace(/<p>(.*?)<\/p>/gs, (match, p1) => {
+        return `<p>${p1.replace(/\n/g, ' ').trim()}</p>`;
+    });
     
     return text;
 }
 
-// 语音朗读功能
-class SpeechHandler {
-    constructor() {
-        this.synth = window.speechSynthesis;
-        this.voices = [];
-        this.speaking = false;
-        this.currentUtterance = null;
-
-        // 加载声音列表
-        this.loadVoices();
-        if (speechSynthesis.onvoiceschanged !== undefined) {
-            speechSynthesis.onvoiceschanged = this.loadVoices.bind(this);
+// 播放TTS语音
+function playTTSFromServer(text) {
+    fetch('/api/tts', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.url) {
+            const audio = new Audio(data.url);
+            audio.play().catch(err => {
+                console.error('语音播放失败：', err);
+            });
         }
-    }
-
-    loadVoices() {
-        this.voices = this.synth.getVoices();
-        // 优先使用中文声音
-        this.selectedVoice = this.voices.find(voice => voice.lang.includes('zh')) || this.voices[0];
-    }
-
-    speak(text) {
-        if (this.speaking) {
-            this.stop();
-        }
-
-        if (text) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.voice = this.selectedVoice;
-            utterance.rate = 1;
-            utterance.pitch = 1;
-            utterance.volume = 1;
-
-            utterance.onstart = () => {
-                this.speaking = true;
-                console.log('开始朗读');
-            };
-
-            utterance.onend = () => {
-                this.speaking = false;
-                this.currentUtterance = null;
-                console.log('朗读结束');
-            };
-
-            utterance.onerror = (event) => {
-                console.error('朗读错误:', event);
-                this.speaking = false;
-                this.currentUtterance = null;
-            };
-
-            this.currentUtterance = utterance;
-            this.synth.speak(utterance);
-        }
-    }
-
-    stop() {
-        if (this.speaking) {
-            this.synth.cancel();
-            this.speaking = false;
-            this.currentUtterance = null;
-        }
-    }
-
-    pause() {
-        if (this.speaking) {
-            this.synth.pause();
-        }
-    }
-
-    resume() {
-        if (this.currentUtterance) {
-            this.synth.resume();
-        }
-    }
+    })
+    .catch(err => {
+        console.error('语音合成失败：', err);
+    });
 }
 
-// 创建语音处理实例
-const speechHandler = new SpeechHandler();
+// 在AI回复处理中使用TTS
+function handleAIResponse(replyText) {
+    playTTSFromServer(replyText);
+}
 
 // 修改addMessage函数，添加语音按钮
 function addMessage(content, isAI = false) {
@@ -193,53 +147,6 @@ function addMessage(content, isAI = false) {
     // 如果是AI消息，进行格式化处理
     if (isAI) {
         messageContent.innerHTML = formatAIResponse(content);
-        
-        // 添加语音控制按钮
-        const speechControls = document.createElement('div');
-        speechControls.className = 'speech-controls';
-        speechControls.innerHTML = `
-            <button class="speech-btn play" title="朗读">
-                <i class="fas fa-play"></i>
-            </button>
-            <button class="speech-btn pause" title="暂停" style="display: none;">
-                <i class="fas fa-pause"></i>
-            </button>
-            <button class="speech-btn stop" title="停止" style="display: none;">
-                <i class="fas fa-stop"></i>
-            </button>
-        `;
-        
-        // 绑定语音控制事件
-        const playBtn = speechControls.querySelector('.play');
-        const pauseBtn = speechControls.querySelector('.pause');
-        const stopBtn = speechControls.querySelector('.stop');
-        
-        playBtn.addEventListener('click', () => {
-            const text = messageContent.textContent;
-            speechHandler.speak(text);
-            playBtn.style.display = 'none';
-            pauseBtn.style.display = 'inline-block';
-            stopBtn.style.display = 'inline-block';
-        });
-        
-        pauseBtn.addEventListener('click', () => {
-            if (speechHandler.speaking) {
-                speechHandler.pause();
-                pauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-            } else {
-                speechHandler.resume();
-                pauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-            }
-        });
-        
-        stopBtn.addEventListener('click', () => {
-            speechHandler.stop();
-            playBtn.style.display = 'inline-block';
-            pauseBtn.style.display = 'none';
-            stopBtn.style.display = 'none';
-        });
-        
-        messageDiv.appendChild(speechControls);
     } else {
         messageContent.innerHTML = content;
     }
@@ -250,26 +157,35 @@ function addMessage(content, isAI = false) {
 }
 
 async function uploadFiles(files) {
-    const formData = new FormData();
-    for (const file of files) {
-        formData.append('files', file);
-    }
-
     try {
-        console.log('开始上传文件:', files.map(f => f.name));
-        const response = await fetch('http://localhost:3000/api/upload', {
-            method: 'POST',
-            body: formData
-        });
+        const results = [];
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append('file', file);
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || '上传失败');
+            console.log('开始上传文件:', file.name);
+            const response = await fetch('http://localhost:3000/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || '上传失败');
+            }
+
+            // 读取上传的文件内容
+            const fileResponse = await fetch(`/api/read/${data.file.filename}`);
+            const fileData = await fileResponse.json();
+
+            results.push({
+                filename: data.file.filename,
+                originalname: data.file.originalname,
+                content: fileData.content
+            });
         }
-
-        const data = await response.json();
-        console.log('文件上传成功:', data);
-        return data.files;
+        console.log('所有文件上传成功:', results);
+        return results;
     } catch (error) {
         console.error('文件上传错误:', error);
         addMessage(`文件上传失败: ${error.message}`, true);
@@ -395,59 +311,56 @@ async function handleFileUpload(file) {
         `;
         uploadPreview.appendChild(previewItem);
 
-        // 使用XMLHttpRequest实现上传进度显示
+        // 使用FormData上传文件
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            
-            // 进度处理
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    const percent = Math.round((e.loaded / e.total) * 100);
-                    const progressBar = previewItem.querySelector('.progress-bar');
-                    const progressText = previewItem.querySelector('.progress-text');
-                    if (progressBar && progressText) {
-                        progressBar.style.width = `${percent}%`;
-                        progressText.textContent = `上传中 ${percent}%`;
-                    }
+        const xhr = new XMLHttpRequest();
+        
+        // 进度处理
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                const progressBar = previewItem.querySelector('.progress-bar');
+                const progressText = previewItem.querySelector('.progress-text');
+                if (progressBar && progressText) {
+                    progressBar.style.width = `${percent}%`;
+                    progressText.textContent = `上传中 ${percent}%`;
                 }
-            };
+            }
+        };
 
-            // 完成处理
+        // 使用Promise包装XHR请求
+        const response = await new Promise((resolve, reject) => {
             xhr.onload = () => {
                 if (xhr.status === 200) {
-                    const response = JSON.parse(xhr.response);
-                    if (response.success) {
-                        const progressText = previewItem.querySelector('.progress-text');
-                        if (progressText) {
-                            progressText.textContent = '上传完成';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.success) {
+                            const progressText = previewItem.querySelector('.progress-text');
+                            if (progressText) {
+                                progressText.textContent = '上传完成';
+                            }
+                            console.log('文件上传成功:', response);
+                            resolve(response);
+                        } else {
+                            reject(new Error(response.error || '上传失败'));
                         }
-                        resolve(response);
-                    } else {
-                        reject(new Error(response.error || '上传失败'));
+                    } catch (e) {
+                        reject(new Error('解析响应失败'));
                     }
                 } else {
-                    reject(new Error('上传失败'));
+                    reject(new Error(`上传失败: ${xhr.status}`));
                 }
             };
 
-            // 错误处理
             xhr.onerror = () => reject(new Error('网络错误'));
-            
-            // 发送请求
-            xhr.open('POST', 'http://localhost:3000/api/upload');
+            xhr.open('POST', '/api/upload');
             xhr.send(formData);
         });
 
         // 添加到上传文件列表
-        uploadedFiles.push({
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            uploadTime: new Date().toISOString()
-        });
+        uploadedFiles.push(file);
 
         // 添加到阅读历史
         addToReadingHistory(file);
@@ -491,12 +404,23 @@ fileUpload?.addEventListener('change', (e) => {
     }
 });
 
+// 发送消息给AI
 async function sendMessageToAI(message) {
     try {
         // 首先上传所有文件
+        let fileContents = [];
         if (uploadedFiles.length > 0) {
-            processedFiles = await uploadFiles(uploadedFiles);
+            console.log('准备上传文件:', uploadedFiles);
+            fileContents = await uploadFiles(uploadedFiles);
+            console.log('文件上传完成:', fileContents);
         }
+
+        // 显示加载状态
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'message ai loading';
+        loadingDiv.innerHTML = '<div class="message-content">正在思考中...</div>';
+        chatMessages.appendChild(loadingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
 
         const response = await fetch('http://localhost:3000/api/chat', {
             method: 'POST',
@@ -505,7 +429,7 @@ async function sendMessageToAI(message) {
             },
             body: JSON.stringify({
                 message,
-                files: processedFiles
+                files: fileContents
             })
         });
 
@@ -513,19 +437,35 @@ async function sendMessageToAI(message) {
         if (data.error) {
             throw new Error(data.error);
         }
+
+        // 移除加载状态消息
+        if (loadingDiv && loadingDiv.parentNode) {
+            loadingDiv.remove();
+        }
+        
+        // 添加AI回复并播放语音
+        addMessage(data.reply, true);
+        playTTSFromServer(data.reply);
+        
         return data.reply;
     } catch (error) {
         console.error('Error:', error);
+        // 移除加载状态消息
+        const loadingMessage = document.querySelector('.message.ai.loading');
+        if (loadingMessage) {
+            loadingMessage.remove();
+        }
         return '抱歉，发生了一些错误，请稍后重试。';
     }
 }
 
+// 修改发送按钮的事件处理
 sendButton?.addEventListener('click', async () => {
     const message = chatInput.value.trim();
     if (message || uploadedFiles.length > 0) {
         // 显示用户消息
         let userContent = '';
-        if (message) {
+    if (message) {
             userContent += message;
         }
         if (uploadedFiles.length > 0) {
@@ -541,18 +481,13 @@ sendButton?.addEventListener('click', async () => {
         chatInput.value = '';
         uploadPreview.innerHTML = '';
         
-        // 显示加载状态
-        const loadingMessage = '正在思考中...';
-        addMessage(loadingMessage, true);
-        
         // 获取AI响应
         const aiResponse = await sendMessageToAI(message);
         
-        // 移除加载消息
-        chatMessages.removeChild(chatMessages.lastChild);
-        
-        // 添加AI响应
-        addMessage(aiResponse, true);
+        // 如果返回错误消息，显示错误
+        if (aiResponse.includes('抱歉，发生了一些错误')) {
+            addMessage(aiResponse, true);
+        }
 
         // 清空上传的文件
         uploadedFiles = [];
@@ -638,7 +573,7 @@ const themes = {
     }
 };
 
-// 后续可以添加主题切换功能
+// 后续可以添加主题切换功能 
 
 // 页面切换功能
 const sidebarNavLinks = document.querySelectorAll('.sidebar-nav a');
