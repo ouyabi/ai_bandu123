@@ -3,30 +3,34 @@ const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
 const multer = require('multer');
+const multerS3 = require('multer-s3');
+const { S3Client } = require('@aws-sdk/client-s3');
 const fs = require('fs');
 const pdf = require('pdf-parse');
 const { textToSpeech } = require('./tts');
 const app = express();
 
-// 配置文件上传
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadDir = path.join(__dirname, 'uploads');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        // 处理文件名编码
-        const originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
-        const filename = Date.now() + '-' + originalname;
-        cb(null, filename);
+// 配置S3客户端
+const s3 = new S3Client({
+    region: process.env.AWS_REGION || 'ap-northeast-1',
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
     }
 });
 
+// 配置文件上传到S3
 const upload = multer({
-    storage: storage,
+    storage: multerS3({
+        s3: s3,
+        bucket: process.env.AWS_BUCKET_NAME,
+        key: function (req, file, cb) {
+            const originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+            const filename = Date.now() + '-' + originalname;
+            cb(null, `uploads/${filename}`);
+        },
+        contentType: multerS3.AUTO_CONTENT_TYPE
+    }),
     limits: {
         fileSize: 500 * 1024 * 1024  // 500MB
     }
@@ -68,10 +72,10 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
         // 获取文件信息
         const fileInfo = {
-            filename: req.file.filename,
+            filename: req.file.key.split('/').pop(),
             originalname: req.file.originalname,
             size: req.file.size,
-            path: req.file.path
+            location: req.file.location
         };
 
         console.log('文件上传成功:', fileInfo);
@@ -98,9 +102,14 @@ app.post('/api/chat', async (req, res) => {
         // 如果有文件内容，添加到消息中
         if (files && files.length > 0) {
             fullMessage += '\n\n文件内容：\n';
-            files.forEach(file => {
-                fullMessage += `\n${file.filename}:\n${file.content}\n`;
-            });
+            for (const file of files) {
+                try {
+                    const response = await axios.get(file.location);
+                    fullMessage += `\n${file.filename}:\n${response.data}\n`;
+                } catch (error) {
+                    console.error('读取文件内容失败:', error);
+                }
+            }
         }
 
         const response = await axios.post(DEEPSEEK_API_URL, {
@@ -155,7 +164,7 @@ app.post('/api/tts', async (req, res) => {
     }
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`服务器运行在端口 ${PORT}`);
 }); 
