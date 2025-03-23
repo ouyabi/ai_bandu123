@@ -164,32 +164,36 @@
         </section>
 
         <section id="ai-assistant" class="section">
-            <div class="chat-container">
-                <div class="chat-messages">
-                    <div class="message ai">
-                        <div class="message-content">
-                            你好！我是你的AI阅读助手，有什么我可以帮你的吗？
+            <div class="ai-assistant-container">
+                <div class="chat-container">
+                    <div class="chat-messages"></div>
+                    <div class="chat-input-container">
+                        <div class="upload-preview"></div>
+                        <div class="input-group">
+                            <textarea class="chat-input" placeholder="输入你的问题..."></textarea>
+                            <button class="send-btn">发送</button>
+                        </div>
+                        <div class="upload-buttons">
+                            <label class="upload-btn">
+                                <i class="fas fa-image"></i>
+                                上传图片
+                                <input type="file" id="image-upload" accept="image/*" style="display: none;">
+                            </label>
+                            <label class="upload-btn">
+                                <i class="fas fa-file-alt"></i>
+                                上传文件
+                                <input type="file" id="file-upload" accept=".txt,.pdf,.doc,.docx" style="display: none;">
+                            </label>
                         </div>
                     </div>
                 </div>
-                <div class="chat-input">
-                    <div class="upload-preview"></div>
-                    <textarea placeholder="输入你的问题..."></textarea>
-                    <div class="input-actions">
-                        <div class="upload-buttons">
-                            <label class="upload-btn" title="上传图片">
-                                <i class="fas fa-image"></i>
-                                <input type="file" accept="image/*" class="file-input" id="image-upload">
-                            </label>
-                            <label class="upload-btn" title="上传文件">
-                                <i class="fas fa-file"></i>
-                                <input type="file" accept=".pdf,.doc,.docx,.txt" class="file-input" id="file-upload">
-                            </label>
+                <div class="virtual-assistant">
+                    <div class="assistant-container">
+                        <div id="live2d-container"></div>
+                        <div class="assistant-status">
+                            <div class="status-indicator"></div>
+                            <span>AI助手在线</span>
                         </div>
-                        <button class="send-btn">
-                            <i class="fas fa-paper-plane"></i>
-                            发送
-                        </button>
                     </div>
                 </div>
             </div>

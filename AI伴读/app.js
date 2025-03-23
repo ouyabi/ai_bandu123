@@ -59,7 +59,7 @@ searchInput?.addEventListener('input', (e) => {
 });
 
 // Chat functionality
-const chatInput = document.querySelector('.chat-input textarea');
+const chatInput = document.querySelector('textarea.chat-input');
 const sendButton = document.querySelector('.send-btn');
 const chatMessages = document.querySelector('.chat-messages');
 const uploadPreview = document.querySelector('.upload-preview');
@@ -136,7 +136,7 @@ function handleAIResponse(replyText) {
     playTTSFromServer(replyText);
 }
 
-// 修改addMessage函数，添加语音按钮
+// 修改addMessage函数，添加文件显示功能
 function addMessage(content, isAI = false) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isAI ? 'ai' : 'user'}`;
@@ -148,7 +148,24 @@ function addMessage(content, isAI = false) {
     if (isAI) {
         messageContent.innerHTML = formatAIResponse(content);
     } else {
-        messageContent.innerHTML = content;
+        // 用户消息：显示文本内容和文件信息
+        let messageHtml = content;
+        
+        // 如果有上传的文件，添加文件信息
+        if (uploadedFiles.length > 0) {
+            messageHtml += '<div class="uploaded-files">';
+            uploadedFiles.forEach(file => {
+                messageHtml += `
+                    <div class="file-item">
+                        <i class="fas fa-file-alt"></i>
+                        <span>${file.name}</span>
+                    </div>
+                `;
+            });
+            messageHtml += '</div>';
+        }
+        
+        messageContent.innerHTML = messageHtml;
     }
     
     messageDiv.appendChild(messageContent);
@@ -404,6 +421,45 @@ fileUpload?.addEventListener('change', (e) => {
     }
 });
 
+// 发送按钮点击事件
+function initializeChatEvents() {
+    console.log('初始化聊天事件...');
+    console.log('发送按钮:', sendButton);
+    console.log('输入框:', chatInput);
+
+    if (sendButton && chatInput) {
+        // 发送按钮点击事件
+        sendButton.addEventListener('click', async () => {
+            console.log('发送按钮被点击');
+            const message = chatInput.value.trim();
+            if (message || uploadedFiles.length > 0) {
+                addMessage(message, false);
+                chatInput.value = '';
+                // 清空上传预览区域
+                uploadPreview.innerHTML = '';
+                await sendMessageToAI(message);
+            }
+        });
+
+        // 输入框回车发送
+        chatInput.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const message = chatInput.value.trim();
+                if (message || uploadedFiles.length > 0) {
+                    addMessage(message, false);
+                    chatInput.value = '';
+                    // 清空上传预览区域
+                    uploadPreview.innerHTML = '';
+                    await sendMessageToAI(message);
+                }
+            }
+        });
+    } else {
+        console.error('未找到发送按钮或输入框元素');
+    }
+}
+
 // 发送消息给AI
 async function sendMessageToAI(message) {
     try {
@@ -447,59 +503,26 @@ async function sendMessageToAI(message) {
         addMessage(data.reply, true);
         playTTSFromServer(data.reply);
         
-        return data.reply;
+        // 清空已上传的文件列表和预览
+        uploadedFiles = [];
+        uploadPreview.innerHTML = '';
+        
     } catch (error) {
-        console.error('Error:', error);
-        // 移除加载状态消息
-        const loadingMessage = document.querySelector('.message.ai.loading');
-        if (loadingMessage) {
-            loadingMessage.remove();
-        }
-        return '抱歉，发生了一些错误，请稍后重试。';
+        console.error('发送消息错误:', error);
+        addMessage(`发送失败: ${error.message}`, true);
     }
 }
 
-// 修改发送按钮的事件处理
-sendButton?.addEventListener('click', async () => {
-    const message = chatInput.value.trim();
-    if (message || uploadedFiles.length > 0) {
-        // 显示用户消息
-        let userContent = '';
-    if (message) {
-            userContent += message;
-        }
-        if (uploadedFiles.length > 0) {
-            userContent += '<div class="uploaded-files">';
-            uploadedFiles.forEach(file => {
-                userContent += `<div class="file-item">${file.name}</div>`;
-            });
-            userContent += '</div>';
-        }
-        addMessage(userContent);
-        
-        // 清空输入和预览
-        chatInput.value = '';
-        uploadPreview.innerHTML = '';
-        
-        // 获取AI响应
-        const aiResponse = await sendMessageToAI(message);
-        
-        // 如果返回错误消息，显示错误
-        if (aiResponse.includes('抱歉，发生了一些错误')) {
-            addMessage(aiResponse, true);
-        }
-
-        // 清空上传的文件
-        uploadedFiles = [];
-        processedFiles = [];
-    }
-});
-
-chatInput?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendButton.click();
-    }
+// 在 DOMContentLoaded 事件中初始化
+document.addEventListener('DOMContentLoaded', () => {
+    // 加载阅读历史
+    loadReadingHistory();
+    
+    // 初始化聊天事件
+    initializeChatEvents();
+    
+    // 添加初始欢迎消息
+    addMessage('你好！我是你的AI阅读助手，有什么我可以帮你的吗？', true);
 });
 
 // Reading progress
@@ -929,4 +952,33 @@ function restoreFavoriteState() {
 }
 
 // 页面加载完成后恢复收藏状态
-document.addEventListener('DOMContentLoaded', restoreFavoriteState); 
+document.addEventListener('DOMContentLoaded', restoreFavoriteState);
+
+// 添加文件上传相关的样式
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+.uploaded-files {
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 0.9em;
+}
+
+.file-item i {
+    color: var(--text-color);
+}
+
+.file-item span {
+    color: var(--text-color);
+    word-break: break-all;
+}
+`;
+document.head.appendChild(styleSheet); 
