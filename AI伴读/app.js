@@ -138,6 +138,9 @@ function handleAIResponse(replyText) {
 
 // 修改addMessage函数，添加文件显示功能
 function addMessage(content, isAI = false) {
+    // 移除空状态类
+    chatMessages.classList.remove('empty');
+    
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isAI ? 'ai' : 'user'}`;
     
@@ -316,7 +319,30 @@ window.removeFromHistory = function(id) {
     }
 };
 
-// 文件上传处理
+// 添加显示思考中提示的函数
+function showThinkingMessage() {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message ai loading';
+    messageDiv.id = 'thinking-message';
+    
+    const messageContent = document.createElement('div');
+    messageContent.className = 'message-content';
+    messageContent.textContent = '正在思考中';
+    
+    messageDiv.appendChild(messageContent);
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// 移除思考中提示
+function removeThinkingMessage() {
+    const thinkingMessage = document.getElementById('thinking-message');
+    if (thinkingMessage) {
+        thinkingMessage.remove();
+    }
+}
+
+// 修改文件上传处理函数
 async function handleFileUpload(file) {
     try {
         // 放宽文件大小限制
@@ -324,18 +350,28 @@ async function handleFileUpload(file) {
             throw new Error('文件大小不能超过500MB');
         }
 
+        // 检查文件类型
+        const allowedTypes = ['.txt', '.pdf', '.epub', '.mobi', '.doc', '.docx'];
+        const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+        if (!allowedTypes.includes(fileExt)) {
+            throw new Error('请上传电子书文件（支持txt、pdf、epub、mobi、doc、docx格式）');
+        }
+
         // 创建上传预览
         const previewItem = document.createElement('div');
         previewItem.className = 'preview-item';
         previewItem.innerHTML = `
             <div class="upload-info">
-                <i class="fas fa-file-alt"></i>
+                <i class="fas fa-book"></i>
                 <div class="file-name">${file.name}</div>
                 <div class="upload-progress">
                     <div class="progress-bar"></div>
                     <div class="progress-text">准备上传...</div>
                 </div>
             </div>
+            <button class="remove-file" onclick="removeFile(this, '${file.name}')">
+                <i class="fas fa-times"></i>
+            </button>
         `;
         uploadPreview.appendChild(previewItem);
 
@@ -434,6 +470,7 @@ window.removeFile = function(button, fileName) {
     const element = button.closest('.preview-item');
     element.remove();
     uploadedFiles = uploadedFiles.filter(file => file.name !== fileName);
+    processedFiles = processedFiles.filter(file => file.originalname !== fileName);
 };
 
 imageUpload?.addEventListener('change', (e) => {
@@ -447,6 +484,8 @@ fileUpload?.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
         handleFileUpload(file);
+        // 清空input的value，这样同一个文件可以重复选择
+        e.target.value = '';
     }
 });
 
@@ -455,17 +494,54 @@ async function sendMessage() {
     const message = chatInput.value.trim();
     if (!message && uploadedFiles.length === 0) return;
 
+    // 保存当前的文件信息用于显示在消息中
+    const currentFiles = [...uploadedFiles];
+    const currentProcessedFiles = [...processedFiles];
+    
+    // 清空输入框
+    chatInput.value = '';
+
     try {
-        // 显示用户消息
-        addMessage(message);
+        // 显示用户消息（包含文件信息）
+        let messageContent = message;
+        if (currentFiles.length > 0) {
+            messageContent += '<div class="uploaded-files">';
+            currentFiles.forEach(file => {
+                messageContent += `
+                    <div class="file-item">
+                        <i class="fas fa-file-alt"></i>
+                        <span>${file.name}</span>
+                    </div>
+                `;
+            });
+            messageContent += '</div>';
+        }
+        addMessage(messageContent);
+
+        // 清理上传文件列表和预览
+        uploadedFiles = [];
+        processedFiles = [];
+        uploadPreview.innerHTML = '';
         
-        // 清空输入框和文件列表
-        chatInput.value = '';
+        // 清空文件输入框，允许重新选择相同文件
+        const fileInput = document.getElementById('file-upload');
+        const imageInput = document.getElementById('image-upload');
+        if (fileInput) fileInput.value = '';
+        if (imageInput) imageInput.value = '';
+
+        // 如果有文件，显示角色提示消息
+        if (currentFiles.length > 0) {
+            const bookName = currentFiles[0].name.replace(/\.[^/.]+$/, '');
+            addMessage(`你好！我是《${bookName}》的作者。我很高兴能和你交流关于这本书的任何问题。我会以作者的视角，深入浅出地为你解答疑惑，分享创作灵感和写作背后的故事。请随时向我提问！`, true);
+        }
+
+        // 显示正在思考中的提示
+        showThinkingMessage();
         
         // 准备发送的数据
         const requestData = {
             message: message,
-            files: processedFiles
+            files: currentFiles.length > 0 ? currentProcessedFiles : [] // 只在第一次发送时包含文件
         };
 
         // 发送到服务器
@@ -486,6 +562,9 @@ async function sendMessage() {
             throw new Error(data.error);
         }
 
+        // 移除思考中提示（如果存在）
+        removeThinkingMessage();
+
         // 显示AI回复
         addMessage(data.reply, true);
         handleAIResponse(data.reply);
@@ -493,11 +572,7 @@ async function sendMessage() {
     } catch (error) {
         console.error('发送失败:', error);
         addMessage(`发送失败: ${error.message}`, true);
-    } finally {
-        // 清理上传文件列表
-        uploadedFiles = [];
-        processedFiles = [];
-        uploadPreview.innerHTML = '';
+        removeThinkingMessage();
     }
 }
 
@@ -518,10 +593,10 @@ document.addEventListener('DOMContentLoaded', () => {
     loadReadingHistory();
     
     // 初始化聊天事件
-    initializeChatEvents();
-    
-    // 添加初始欢迎消息
-    addMessage('你好！我是你的AI阅读助手，有什么我可以帮你的吗？', true);
+    const chatMessages = document.querySelector('.chat-messages');
+    if (chatMessages) {
+        chatMessages.classList.add('empty');
+    }
 });
 
 // Reading progress

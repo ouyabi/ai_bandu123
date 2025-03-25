@@ -558,50 +558,57 @@ main {
 }
 
 .message.loading .message-content {
-    background: var(--card-bg);
-    color: var(--text-color);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
+    color: var(--text-secondary);
+    font-style: italic;
 }
 
 .message.loading .message-content::after {
-    content: "...";
-    animation: loading 1s infinite;
+    content: "";
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--text-secondary);
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: thinking-spin 1s linear infinite;
 }
 
-@keyframes loading {
-    0% { content: "."; }
-    33% { content: ".."; }
-    66% { content: "..."; }
+@keyframes thinking-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* 上传文件预览 */
 .upload-preview {
-    margin-bottom: var(--spacing-sm);
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
 }
 
 .preview-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.upload-info {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-}
-
-.preview-item i {
-    color: var(--text-secondary);
+    flex: 1;
 }
 
 .file-name {
     flex: 1;
     font-size: 0.9em;
     color: var(--text-color);
+    word-break: break-all;
 }
 
 .upload-progress {
@@ -622,6 +629,25 @@ main {
 .progress-text {
     font-size: 0.8em;
     color: var(--text-secondary);
+    margin-left: var(--spacing-sm);
+}
+
+.remove-file {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.remove-file:hover {
+    background: rgba(255, 0, 0, 0.1);
+    color: #ff4444;
 }
 
 .chat-input-container {
@@ -1512,4 +1538,26 @@ footer {
     to {
         transform: rotate(360deg);
     }
+}
+
+/* 空聊天框引导提示 */
+.chat-messages.empty {
+    position: relative;
+}
+
+.chat-messages.empty::before {
+    content: "上传一本电子书，我将以作者的身份与你对话\A\A你可以询问：\A· 作品的创作背景和灵感来源\A· 人物设定和情节发展的考虑\A· 作品中的深层含义和主题\A· 创作过程中的趣事和感悟";
+    display: block;
+    white-space: pre;
+    color: rgba(255, 255, 255, 0.3);
+    text-align: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    padding: 20px;
+    font-size: 14px;
+    line-height: 1.8;
+    pointer-events: none;
 }

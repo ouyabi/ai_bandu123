@@ -8,6 +8,9 @@ const pdf = require('pdf-parse');
 const { textToSpeech } = require('./tts');
 const app = express();
 
+// 添加聊天历史记录数组
+let chatHistory = [];
+
 // 配置文件上传
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -63,6 +66,13 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 if (!DEEPSEEK_API_KEY) {
     console.error('错误: 未设置 DEEPSEEK_API_KEY 环境变量');
     process.exit(1);
+}
+
+// 添加文件类型检查函数
+function isEbook(filename) {
+    const allowedTypes = ['.txt', '.pdf', '.epub', '.mobi', '.doc', '.docx'];
+    const ext = '.' + filename.split('.').pop().toLowerCase();
+    return allowedTypes.includes(ext);
 }
 
 // 处理文件上传
@@ -123,46 +133,80 @@ app.post('/api/chat', async (req, res) => {
     try {
         const { message, files } = req.body;
         let fullMessage = message || '';
+        let systemPrompt = '';
 
-        // 如果有文件内容，添加到消息中
+        // 检查是否有上传的文件
         if (files && files.length > 0) {
-            fullMessage += '\n\n文件内容：\n';
-            files.forEach(file => {
-                fullMessage += `\n${file.filename}:\n${file.content}\n`;
+            const file = files[0]; // 获取第一个文件
+            if (isEbook(file.originalname)) {
+                // 如果是电子书，构建作者视角的系统提示词
+                const bookName = file.originalname.replace(/\.[^/.]+$/, ''); // 移除文件扩展名
+                systemPrompt = `你现在是《${bookName}》的作者。请以作者的身份和口吻与用户对话。你的回答应该：
+1. 体现作者对作品的深入理解和独特见解
+2. 使用温和、专业的语气
+3. 在回答中适当引用作品内容
+4. 保持作者的专业性和权威性
+5. 如果用户的问题超出作品范围，请礼貌地说明并引导回到作品相关话题
+
+请记住：你就是这本书的作者，要用作者的身份和语气来回答。`;
+
+                // 添加文件内容到消息中
+                fullMessage += '\n\n以下是上传的书籍内容片段（可参考）：\n';
+                fullMessage += `\n${file.originalname}:\n${file.content}\n`;
+            } else {
+                // 如果不是电子书，返回提示信息
+                return res.json({
+                    reply: "请上传电子书，我将以作者的身份和你聊天！"
+                });
+            }
+        }
+
+        // 如果没有文件且没有消息，返回提示
+        if (!files?.length && !message?.trim()) {
+            return res.json({
+                reply: "请上传电子书，我将以作者的身份和你聊天！"
             });
         }
 
-        console.log('发送到 DeepSeek 的消息:', fullMessage);
+        try {
+            // 记录上下文
+            chatHistory.push({ role: 'user', content: fullMessage });
 
-        const response = await axios.post(DEEPSEEK_API_URL, {
-            messages: [
-                {
-                    role: "user",
-                    content: fullMessage
+            // 只保留最近几轮对话（避免过长）
+            const recentMessages = chatHistory.slice(-5);
+
+            const response = await axios.post(DEEPSEEK_API_URL, {
+                messages: [
+                    { role: "system", content: systemPrompt || "你是一个友好的AI助手。" },
+                    ...recentMessages
+                ],
+                model: "deepseek-chat",
+                temperature: 0.7,
+                max_tokens: 1000
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+                    'Content-Type': 'application/json'
                 }
-            ],
-            model: "deepseek-chat",
-            temperature: 0.7,
-            max_tokens: 1000
-        }, {
-            headers: {
-                'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-                'Content-Type': 'application/json'
+            });
+
+            if (!response.data || !response.data.choices || !response.data.choices[0]) {
+                throw new Error('API 响应格式错误');
             }
-        });
 
-        if (!response.data || !response.data.choices || !response.data.choices[0]) {
-            throw new Error('API 响应格式错误');
+            const reply = response.data.choices[0].message.content;
+
+            // 也加入历史
+            chatHistory.push({ role: 'assistant', content: reply });
+
+            res.json({ reply });
+        } catch (error) {
+            console.error('API调用错误:', error.response?.data || error.message);
+            throw new Error(error.response?.data?.error || '与AI服务通信失败，请稍后重试');
         }
-
-        res.json({
-            reply: response.data.choices[0].message.content
-        });
     } catch (error) {
-        console.error('聊天请求错误:', error.response?.data || error.message);
-        res.status(500).json({
-            error: error.response?.data?.error || error.message || '服务器错误，请稍后重试'
-        });
+        console.error('聊天请求错误:', error);
+        res.status(500).json({ error: error.message || '服务器错误，请稍后重试' });
     }
 });
 
