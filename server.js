@@ -270,7 +270,18 @@ app.use((err, req, res, next) => {
 // 设置端口
 const PORT = process.env.PORT || 3000;
 
+// 添加未捕获异常处理
+process.on('uncaughtException', (err) => {
+    console.error('未捕获的异常:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('未处理的 Promise 拒绝:', reason);
+});
+
 // 启动服务器
-app.listen(PORT, () => {
-    console.log(`服务器运行在 http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`服务器运行在 http://0.0.0.0:${PORT}`);
+}).on('error', (err) => {
+    console.error('服务器启动错误:', err);
 }); 
