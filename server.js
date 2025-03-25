@@ -40,7 +40,8 @@ app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
 // 设置静态文件目录
-app.use(express.static(path.join(__dirname, 'AI伴读')));
+const staticPath = path.join(__dirname, 'AI伴读');
+app.use(express.static(staticPath));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/audio', express.static(path.join(__dirname, 'public/audio')));
 
@@ -56,7 +57,13 @@ if (!fs.existsSync(audioDir)) {
 
 // 默认路由
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'AI伴读', 'index.html'));
+    const indexPath = path.join(staticPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        console.error('index.html not found at:', indexPath);
+        res.status(404).send('页面未找到');
+    }
 });
 
 const DEEPSEEK_API_KEY = 'sk-65a646d3cad34d61ba02807e428b8999';
@@ -252,6 +259,12 @@ app.post('/api/tts', async (req, res) => {
         console.error('TTS Error:', error);
         res.status(500).json({ error: '语音合成失败' });
     }
+});
+
+// 错误处理中间件
+app.use((err, req, res, next) => {
+    console.error('服务器错误:', err);
+    res.status(500).send('服务器内部错误');
 });
 
 // 设置端口
