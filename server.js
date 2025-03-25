@@ -254,7 +254,10 @@ app.post('/api/tts', async (req, res) => {
     }
 });
 
-const PORT = 3000;
+// 设置端口
+const PORT = process.env.PORT || 3000;
+
+// 启动服务器
 app.listen(PORT, () => {
-    console.log(`服务器运行在端口 ${PORT}`);
+    console.log(`服务器运行在 http://localhost:${PORT}`);
 }); 
