@@ -18,7 +18,20 @@ let chatHistory = [];
 
 // 配置 CORS
 app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS.split(','),
+    origin: function(origin, callback) {
+        // 允许没有origin的请求（比如移动应用）
+        if(!origin) return callback(null, true);
+        
+        // 如果环境变量未设置，允许所有来源
+        const allowedOrigins = process.env.ALLOWED_ORIGINS ? 
+            process.env.ALLOWED_ORIGINS.split(',') : 
+            ['http://localhost:3000', 'http://116.205.119.164:3000'];
+            
+        if(allowedOrigins.indexOf(origin) === -1){
+            return callback(null, true); // 临时允许所有来源
+        }
+        return callback(null, true);
+    },
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
