@@ -6,10 +6,22 @@ const multer = require('multer');
 const fs = require('fs');
 const pdf = require('pdf-parse');
 const { textToSpeech } = require('./tts');
+require('dotenv').config();
+
 const app = express();
+
+// 设置端口
+const PORT = process.env.PORT || 3000;
 
 // 添加聊天历史记录数组
 let chatHistory = [];
+
+// 配置 CORS
+app.use(cors({
+    origin: process.env.ALLOWED_ORIGINS.split(','),
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // 配置文件上传
 const storage = multer.diskStorage({
@@ -31,11 +43,10 @@ const storage = multer.diskStorage({
 const upload = multer({
     storage: storage,
     limits: {
-        fileSize: 500 * 1024 * 1024  // 500MB
+        fileSize: process.env.MAX_FILE_SIZE * 1024 * 1024  // 从环境变量获取文件大小限制
     }
 });
 
-app.use(cors());
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
@@ -59,7 +70,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'AI伴读', 'index.html'));
 });
 
-const DEEPSEEK_API_KEY = 'sk-65a646d3cad34d61ba02807e428b8999';
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
 // 检查必要的环境变量
@@ -254,7 +265,9 @@ app.post('/api/tts', async (req, res) => {
     }
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`服务器运行在端口 ${PORT}`);
+// 修改监听配置
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running at http://116.205.119.164:${PORT}`);
+    console.log(`Upload directory: ${uploadDir}`);
+    console.log(`Audio directory: ${audioDir}`);
 }); 
